@@ -1,10 +1,8 @@
 import numpy as np
 import gzip
+import random
 
-
-# =========================================
-#            MNIST BETÖLTŐ
-# =========================================
+# MNIST BETÖLTŐ
 
 def load_mnist_local():
     def load_images(path):
@@ -27,10 +25,7 @@ def load_mnist_local():
 
     return (x_train, y_train), (x_test, y_test)
 
-
-# =========================================
-#         Aktivációk és deriváltak
-# =========================================
+# Aktivációk és deriváltak
 
 def relu(Z):
     return np.maximum(0, Z)
@@ -50,11 +45,7 @@ def softmax(Z):
     expZ = np.exp(Z_shift)
     return expZ / np.sum(expZ, axis=1, keepdims=True)
 
-
-# =========================================
-#                Dense Layer
-# =========================================
-
+# Dense Layer
 class DenseLayer:
     def __init__(self, input_dim, output_dim, activation="relu"):
         self.input_dim = input_dim
@@ -115,11 +106,7 @@ class DenseLayer:
 
         return dA_prev
 
-
-# =========================================
-#                 MLP NETWORK
-# =========================================
-
+# MLP NETWORK
 class MLP:
     def __init__(self, layer_sizes, activations):
         """
@@ -185,7 +172,7 @@ class MLP:
             for start in range(0, m, batch_size):
                 end = start + batch_size
                 if end > m:
-                    break
+                    end = m
 
                 Xb = X[start:end]
                 yb = y[start:end]
@@ -206,10 +193,7 @@ class MLP:
         preds = self.predict(X)
         return np.mean(preds == y)
 
-
-# =========================================
-#                 FUTTATÁS
-# =========================================
+# FUTTATÁS
 
 if __name__ == "__main__":
     (x_train, y_train), (x_test, y_test) = load_mnist_local()
@@ -231,6 +215,6 @@ if __name__ == "__main__":
     print(f"\nTeszt pontosság: {acc*100:.2f}%")
 
     # Példa egy mintára
-    idx = 0
+    idx = random.randrange(0,len(x_test) - 1)
     pred = mlp.predict(x_test[idx:idx+1])[0]
     print(f"Valódi szám: {y_test[idx]}, Predikció: {pred}")
