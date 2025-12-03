@@ -15,7 +15,6 @@ def save_model(model, filename="model.npz"):
     np.savez(filename, **data)
     print(f"Model mentve: {filename}")
 
-
 def load_model(filename="model.npz"):
     try:
         npz = np.load(filename)
@@ -101,7 +100,8 @@ class GUI:
     # GUI 
 
     def _build_layout(self):
-        # Bal: rajztábla + gombok
+
+        # Baloldal: rajztábla + gombok
         left_frame = tk.Frame(self.root)
         left_frame.pack(side=tk.LEFT, padx=10, pady=10)
 
@@ -131,6 +131,8 @@ class GUI:
         train_btn = tk.Button(btn_frame, text="Gyors MNIST tanítás", command=self.on_quick_train)
         train_btn.pack(side=tk.LEFT, padx=2)
 
+        # Középen: prediction, probabilites, online-learning option
+
         middle_frame = tk.Frame(self.root)
         middle_frame.pack(side=tk.LEFT, padx=10, pady=10, fill=tk.Y)
 
@@ -149,7 +151,7 @@ class GUI:
                           command=lambda d=d: self.on_correct_label(d))
             b.pack(side=tk.LEFT, padx=1)
 
-        # Jobb: háló vizualizáció
+        # Jobboldal: háló vizualizáció
         right_frame = tk.Frame(self.root)
         right_frame.pack(side=tk.LEFT, padx=10, pady=10)
 
@@ -249,10 +251,6 @@ class GUI:
     # Háló elrendezés és rajzolás 
 
     def _compute_network_layout(self):
-        """
-        Előre kiszámoljuk, hogy a neuronok hol legyenek a network_canvas-on.
-        Minden réteghez elmentjük: milyen indexű neuronokat mutatunk, és azok (x,y) pozícióit.
-        """
         self.layer_indices = []    # per réteg neuronindexek (eredeti indexek)
         self.node_positions = []   # per réteg (x,y) koordináták
 
