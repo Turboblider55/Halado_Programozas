@@ -109,10 +109,6 @@ class DenseLayer:
 # MLP NETWORK
 class MLP:
     def __init__(self, layer_sizes, activations):
-        """
-        layer_sizes = [784, 128, 64, 10]
-        activations = ["relu", "relu", "softmax"]
-        """
         assert len(layer_sizes) - 1 == len(activations)
         self.layers = []
         for i in range(len(layer_sizes) - 1):
