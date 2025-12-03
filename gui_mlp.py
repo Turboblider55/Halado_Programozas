@@ -1,13 +1,53 @@
 import tkinter as tk
+from tkinter import messagebox
 import numpy as np
 
-# Itt a saját MLP-dat és MNIST loaderedet importálod
+#MLP + MNIST 
 from mlp_mnist import MLP, load_mnist_local
 
-
-# -------------------------
 # Segédfüggvények model mentéshez / betöltéshez
-# -------------------------
+
+def save_model(model, filename="model.npz"):
+    data = {}
+    for i, layer in enumerate(model.layers):
+        data[f"layer{i}_W"] = layer.W
+        data[f"layer{i}_b"] = layer.b
+    np.savez(filename, **data)
+    print(f"Model mentve: {filename}")
+
+
+def load_model(filename="model.npz"):
+    try:
+        npz = np.load(filename)
+    except FileNotFoundError:
+        messagebox.showerror("Hiba", f"A(z) {filename} nem található.")
+        return None
+
+    # réteg méretek visszafejtése a W mátrixokból
+    layer_sizes = []
+    i = 0
+    while f"layer{i}_W" in npz:
+        W = npz[f"layer{i}_W"]
+        if i == 0:
+            layer_sizes.append(W.shape[0])   # input_dim
+        layer_sizes.append(W.shape[1])       # output_dim
+        i += 1
+
+    if len(layer_sizes) < 2:
+        messagebox.showerror("Hiba", "Érvénytelen modell fájl.")
+        return None
+
+    # aktivációk: ReLU az összes rejtett rétegen, Softmax a végén
+    activations = ["relu"] * (len(layer_sizes) - 2) + ["softmax"]
+
+    model = MLP(layer_sizes, activations)
+
+    for i, layer in enumerate(model.layers):
+        layer.W = npz[f"layer{i}_W"]
+        layer.b = npz[f"layer{i}_b"]
+
+    print(f"Model betöltve: {filename}")
+    return model
 
 # # Szín-mappelő segédek
 
@@ -48,7 +88,7 @@ class GUI:
         self.max_neurons_to_display = 50
 
         self.grid_size = 28
-        self.canvas_size = 560  # 28 * 20
+        self.canvas_size = 560
         self.cell_size = self.canvas_size // self.grid_size
         self.grid = np.zeros((self.grid_size, self.grid_size), dtype=np.float32)
 
@@ -81,6 +121,15 @@ class GUI:
 
         clear_btn = tk.Button(btn_frame, text="Törlés", command=self.clear_canvas)
         clear_btn.pack(side=tk.LEFT, padx=2)
+
+        save_btn = tk.Button(btn_frame, text="Model mentése", command=self.on_save_model)
+        save_btn.pack(side=tk.LEFT, padx=2)
+
+        load_btn = tk.Button(btn_frame, text="Model betöltése", command=self.on_load_model)
+        load_btn.pack(side=tk.LEFT, padx=2)
+
+        train_btn = tk.Button(btn_frame, text="Gyors MNIST tanítás", command=self.on_quick_train)
+        train_btn.pack(side=tk.LEFT, padx=2)
 
         middle_frame = tk.Frame(self.root)
         middle_frame.pack(side=tk.LEFT, padx=10, pady=10, fill=tk.Y)
@@ -139,9 +188,57 @@ class GUI:
         self.grid[:] = 0.0
         self.update_prediction_and_visualization()
 
+    # Modell műveletek 
+
+    def on_save_model(self):
+        save_model(self.model, "model.npz")
+        messagebox.showinfo("Mentés", "Model mentve: model.npz")
+
+    def on_load_model(self):
+        m = load_model("model.npz")
+        if m is not None:
+            self.model = m
+            self._compute_network_layout()
+            self.update_prediction_and_visualization()
+            messagebox.showinfo("Betöltés", "Model betöltve: model.npz")
+
+    def on_quick_train(self):
+        answer = messagebox.askyesno(
+            "Gyors tanítás",
+            "Ez pár másodpercig tarthat.\n\n"
+            "Tanítsuk az MLP-t egy kisebb MNIST részhalmazon?"
+        )
+        if not answer:
+            return
+
+        try:
+            (x_train, y_train), _ = load_mnist_local()
+        except Exception as e:
+            messagebox.showerror("Hiba", f"MNIST betöltési hiba: {e}")
+            return
+
+        # Gyorsabb próba kedvéért használjunk kevesebb adatot + keverjük
+        perm = np.random.permutation(len(x_train))
+
+        x_train_small = x_train[perm][:32000]
+        y_train_small = y_train[perm][:32000]
+
+        self.model.fit(
+            x_train_small,
+            y_train_small,
+            epochs=5,
+            batch_size=64,
+            lr=self.learning_rate,
+            verbose=True
+        )
+
+        self.update_prediction_and_visualization()
+        messagebox.showinfo("Tanítás kész", "Gyors MNIST tanítás befejezve (5 epoch, 32k minta).")
+
+
     def on_correct_label(self, correct_digit):
-        # Online tanítás a jelenlegi rajzból
-        x = self.grid.flatten().reshape(1, -1)  # (1, 784)
+        # tanítás a jelenlegi rajzból
+        x = self.grid.flatten().reshape(1, -1)
         y = np.array([correct_digit], dtype=np.int64)
 
         loss = self.model.fit_batch(x, y, self.learning_rate)
@@ -194,9 +291,9 @@ class GUI:
 
     def update_prediction_and_visualization(self):
         # 1) Forward a jelenlegi rajzról
-        x = self.grid.flatten().reshape(1, -1)  # (1, 784)
-        probs = self.model.forward(x)           # (1, 10)
-        probs = probs[0]                        # (10,)
+        x = self.grid.flatten().reshape(1, -1)  
+        probs = self.model.forward(x)           
+        probs = probs[0]                        
         pred_digit = int(np.argmax(probs))
 
         # 2) Label frissítés
@@ -218,15 +315,15 @@ class GUI:
         activations = []
 
         # Input aktiváció
-        A0 = x_input[0]  # (784,)
+        A0 = x_input[0] 
         activations.append(A0)
 
         # Rejtett + kimeneti rétegek
         for layer in self.model.layers:
-            A = layer.A[0]  # utolsó forward-ból maradt
+            A = layer.A[0] 
             activations.append(A)
 
-        # Neuronok kirajzolása
+        # Neuronok mérete
         radius = 6
 
         # Aktiváció minimum / maximum rétegenként (a színezéshez)
@@ -249,8 +346,6 @@ class GUI:
             curr_idxs = self.layer_indices[l + 1]
             curr_positions = self.node_positions[l + 1]
 
-            # W mátrix a l-edik kapcsolat fölött:
-            # input->1.rejtett: model.layers[0].W
             W = self.model.layers[l].W  
 
             # max abs weight a kijelölt kapcsolatokra
@@ -282,7 +377,6 @@ class GUI:
                     fill=color,
                     outline="black"
                 )
-
 
 # main
 
